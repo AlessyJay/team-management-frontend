@@ -7,9 +7,7 @@ export const POST = async (req: NextRequest) => {
 
   const backendRes = await fetch(`${BACKEND_URL}/api/auth/login`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
     cache: "no-store",
   });
@@ -39,18 +37,24 @@ export const POST = async (req: NextRequest) => {
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 2,
+    maxAge: 60 * 2, // 2 minutes, matches access token lifetime
   });
 
   const setCookieHeaders = backendRes.headers.getSetCookie?.() ?? [];
 
-  for (const cookie of setCookieHeaders) {
-    if (cookie.includes("refresh_token=")) {
-      res.headers.append(
-        "Set-Cookie",
-        cookie.replace("Path=/api/auth", "Path=/"),
-      );
-    }
+  for (const raw of setCookieHeaders) {
+    if (!raw.startsWith("refresh_token=")) continue;
+    const nameValuePart = raw.split(";")[0];
+    const eqIndex = nameValuePart.indexOf("=");
+    const tokenValue = nameValuePart.slice(eqIndex + 1);
+
+    res.cookies.set("refresh_token", tokenValue, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 180, // 6 months, matches backend
+    });
   }
 
   return res;
