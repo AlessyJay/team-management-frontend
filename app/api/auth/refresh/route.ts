@@ -19,6 +19,7 @@ export const POST = async (req: NextRequest) => {
     });
 
     res.cookies.delete("access_token");
+    res.cookies.delete("refresh_token");
     return res;
   }
 

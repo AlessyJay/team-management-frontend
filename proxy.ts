@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 const ACCESS_COOKIE = "access_token";
 const REFRESH_COOKIE = "refresh_token";
 
-const AUTH_PAGES = ["/login", "/register"];
+const AUTH_PAGES = ["/login", "/signup"];
 const PUBLIC_PATHS = [...AUTH_PAGES];
 
 type Claims = {
@@ -88,8 +88,8 @@ async function tryRefresh(req: NextRequest): Promise<string | null> {
 function redirectToLogin(req: NextRequest) {
   const loginUrl = new URL("/login", req.url);
 
-  if (req.nextUrl.pathname !== "/") {
-    const fullPath = `${req.nextUrl.pathname}${req.nextUrl.search}`;
+  const fullPath = `${req.nextUrl.pathname}${req.nextUrl.search}`;
+  if (fullPath !== "/") {
     loginUrl.searchParams.set("redirectTo", fullPath);
   }
 
@@ -108,25 +108,20 @@ export async function proxy(req: NextRequest) {
   const visitingAuthPage = isAuthPage(pathname);
   const visitingPublicPath = isPublicPath(pathname);
 
-  // Guest user (not logged in)
   if (!accessToken) {
-    if (visitingPublicPath) {
-      return NextResponse.next();
-    }
-
+    if (visitingPublicPath) return NextResponse.next();
     return redirectToLogin(req);
   }
 
   const remaining = secondsUntilExpiry(accessToken);
 
-  // Broken/invalid access token
   if (remaining === null) {
     const res = visitingPublicPath ? NextResponse.next() : redirectToLogin(req);
     res.cookies.delete(ACCESS_COOKIE);
+    res.cookies.delete(REFRESH_COOKIE);
     return res;
   }
 
-  // Access token still healthy
   if (remaining > 30) {
     if (visitingAuthPage) {
       return NextResponse.redirect(new URL("/", req.url));
@@ -135,7 +130,6 @@ export async function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Need refresh soon
   if (!refreshToken) {
     const res = visitingPublicPath ? NextResponse.next() : redirectToLogin(req);
     res.cookies.delete(ACCESS_COOKIE);
@@ -145,7 +139,6 @@ export async function proxy(req: NextRequest) {
 
   const newAccessToken = await tryRefresh(req);
 
-  // Refresh failed
   if (!newAccessToken) {
     const res = visitingPublicPath ? NextResponse.next() : redirectToLogin(req);
     res.cookies.delete(ACCESS_COOKIE);
@@ -153,7 +146,6 @@ export async function proxy(req: NextRequest) {
     return res;
   }
 
-  // Refresh succeeded
   const res = visitingAuthPage
     ? NextResponse.redirect(new URL("/", req.url))
     : NextResponse.next();

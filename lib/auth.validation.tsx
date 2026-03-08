@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { LoginRequest } from "@/queries/auth.query";
 import { toast } from "sonner";
+import { useRouter, useSearchParams } from "next/navigation";
 
 const SignupSchema = z
   .object({
@@ -31,6 +32,8 @@ type LoginSchemaType = z.infer<typeof LoginSchema>;
 
 const AuthValidation = () => {
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   const signupForm = useForm<SignupSchemaType>({
     resolver: zodResolver(SignupSchema),
@@ -53,22 +56,27 @@ const AuthValidation = () => {
   const signupOnSubmit = (data: SignupSchemaType) => {
     startTransition(async () => {
       console.log("Signup Data:", data);
-
-      // await signupAction(data)
-      // handle response here
     });
   };
 
   const signinOnSubmit = (data: LoginSchemaType) => {
     startTransition(async () => {
-      const res = await LoginRequest({
-        email: data.email,
-        password: data.password,
-      });
+      try {
+        await LoginRequest({
+          email: data.email,
+          password: data.password,
+        });
 
-      if (res) {
-        toast("Login successful", { position: "bottom-right" });
-        console.log(res);
+        const redirectTo = searchParams.get("redirectTo") || "/";
+
+        toast.success("Login successful", { position: "bottom-right" });
+        router.replace(redirectTo);
+        // DO NOT call router.refresh() here — it remounts layout client
+        // components and can cause AuthRefreshManager to boot-hydrate
+        // immediately, firing a refresh call before any token is stale.
+      } catch (error) {
+        console.error(error);
+        toast.error("Invalid email or password", { position: "bottom-right" });
       }
     });
   };

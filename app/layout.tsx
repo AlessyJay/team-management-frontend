@@ -4,6 +4,7 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthRefreshManager } from "@/components/shared/auth-refresh-manager";
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
@@ -35,7 +36,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <TooltipProvider>{children}</TooltipProvider>
+        <TooltipProvider>
+          <AuthRefreshManager />
+          {children}
+        </TooltipProvider>
         <Toaster />
       </body>
     </html>
