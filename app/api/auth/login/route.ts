@@ -32,28 +32,28 @@ export const POST = async (req: NextRequest) => {
 
   const res = NextResponse.json(data);
 
+  // access_token: short-lived, stored in HttpOnly cookie
   res.cookies.set("access_token", data.accessToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 2, // 2 minutes, matches access token lifetime
+    maxAge: 60 * 2,
   });
 
   const setCookieHeaders = backendRes.headers.getSetCookie?.() ?? [];
 
   for (const raw of setCookieHeaders) {
     if (!raw.startsWith("refresh_token=")) continue;
-    const nameValuePart = raw.split(";")[0];
-    const eqIndex = nameValuePart.indexOf("=");
-    const tokenValue = nameValuePart.slice(eqIndex + 1);
+
+    const tokenValue = raw.split(";")[0].slice("refresh_token=".length);
 
     res.cookies.set("refresh_token", tokenValue, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 60 * 60 * 24 * 180, // 6 months, matches backend
+      maxAge: 60 * 60 * 24 * 180, // 6 months
     });
   }
 

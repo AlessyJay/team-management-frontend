@@ -4,7 +4,7 @@ import { useTransition } from "react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { LoginRequest } from "@/queries/auth.query";
+import { LoginRequest, RegisterRequest } from "@/queries/auth.query";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -55,7 +55,23 @@ const AuthValidation = () => {
 
   const signupOnSubmit = (data: SignupSchemaType) => {
     startTransition(async () => {
-      console.log("Signup Data:", data);
+      startTransition(async () => {
+        try {
+          await RegisterRequest({
+            email: data.email,
+            name: data.name,
+            password: data.password,
+          });
+
+          toast.success("Login successful", { position: "bottom-right" });
+          router.replace("/login");
+        } catch (error) {
+          console.error(error);
+          toast.error("Email or password doesn't meet our requirements", {
+            position: "bottom-right",
+          });
+        }
+      });
     });
   };
 
@@ -71,9 +87,6 @@ const AuthValidation = () => {
 
         toast.success("Login successful", { position: "bottom-right" });
         router.replace(redirectTo);
-        // DO NOT call router.refresh() here — it remounts layout client
-        // components and can cause AuthRefreshManager to boot-hydrate
-        // immediately, firing a refresh call before any token is stale.
       } catch (error) {
         console.error(error);
         toast.error("Invalid email or password", { position: "bottom-right" });

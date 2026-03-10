@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import Link from "next/link";
+import { CreateProjectSheet } from "../projects/create-project-sheet";
 
 export function SiteHeader() {
   return (
@@ -14,16 +14,9 @@ export function SiteHeader() {
         />
         <h1 className="text-base font-medium">Documents</h1>
         <div className="ml-auto flex items-center gap-2">
-          <Button variant="ghost" asChild size="sm" className="hidden sm:flex">
-            <Link
-              href="https://github.com/shadcn-ui/ui/tree/main/apps/v4/app/(examples)/dashboard"
-              rel="noopener noreferrer"
-              target="_blank"
-              className="dark:text-foreground"
-            >
-              GitHub
-            </Link>
-          </Button>
+          <CreateProjectSheet
+            trigger={<Button className="text-xs">Create Project</Button>}
+          />
         </div>
       </div>
     </header>

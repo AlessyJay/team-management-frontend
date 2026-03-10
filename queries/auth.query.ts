@@ -5,6 +5,12 @@ interface LoginPayload {
   password: string;
 }
 
+interface RegisterPayload {
+  email: string;
+  name: string;
+  password: string;
+}
+
 export const LoginRequest = async ({ email, password }: LoginPayload) => {
   const { setAccessToken, setUser } = useAuthStore.getState();
 
@@ -41,4 +47,19 @@ export const LogoutRequest = async () => {
   }).catch(() => null);
 
   clearAuth();
+};
+
+export const RegisterRequest = async ({
+  email,
+  name,
+  password,
+}: RegisterPayload) => {
+  await fetch("/api/auth/register", {
+    method: "POST",
+    body: JSON.stringify({
+      email,
+      name,
+      password,
+    }),
+  });
 };
