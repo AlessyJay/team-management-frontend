@@ -34,6 +34,7 @@ import { OverviewPanel } from "@/components/projects/overview";
 import { MembersPanel } from "@/components/projects/member-panel";
 import { SprintGroup } from "@/components/projects/sprint-group";
 import { useAuthStore } from "@/store/auth.store";
+import Loading from "@/components/projects/loading";
 
 type Tab = "overview" | "sprints" | "members";
 
@@ -76,14 +77,14 @@ export default function ProjectPage() {
     (m) => m.userId === userId && m.role === "MANAGER",
   );
 
-  const invalidate = () =>
+  const invalidateSprints = () =>
     qc.invalidateQueries({ queryKey: ["sprints", projectId] });
 
   const createMut = useMutation({
     mutationFn: (payload: Parameters<typeof createSprint>[1]) =>
       createSprint(projectId, payload),
     onSuccess: () => {
-      invalidate();
+      invalidateSprints();
       toast.success("Sprint created");
     },
     onError: (e: Error) => toast.error(e.message),
@@ -98,7 +99,7 @@ export default function ProjectPage() {
       payload: Parameters<typeof updateSprint>[2];
     }) => updateSprint(projectId, id, payload),
     onSuccess: () => {
-      invalidate();
+      invalidateSprints();
       toast.success("Sprint updated");
     },
     onError: (e: Error) => toast.error(e.message),
@@ -107,7 +108,7 @@ export default function ProjectPage() {
   const deleteMut = useMutation({
     mutationFn: (sprintId: string) => deleteSprint(projectId, sprintId),
     onSuccess: () => {
-      invalidate();
+      invalidateSprints();
       setDeletingId(null);
       toast.success("Sprint deleted");
     },
@@ -117,7 +118,7 @@ export default function ProjectPage() {
   const startMut = useMutation({
     mutationFn: (sprintId: string) => startSprint(projectId, sprintId),
     onSuccess: () => {
-      invalidate();
+      invalidateSprints();
       qc.invalidateQueries({ queryKey: ["project", projectId] });
       toast.success("Sprint started");
     },
@@ -127,7 +128,7 @@ export default function ProjectPage() {
   const completeMut = useMutation({
     mutationFn: (sprintId: string) => completeSprint(projectId, sprintId),
     onSuccess: () => {
-      invalidate();
+      invalidateSprints();
       qc.invalidateQueries({ queryKey: ["project", projectId] });
       toast.success("Sprint completed");
     },
@@ -154,16 +155,7 @@ export default function ProjectPage() {
   };
 
   if (loadingProject) {
-    return (
-      <div className="flex flex-col gap-6">
-        <Skeleton className="h-8 w-48" />
-        <div className="grid grid-cols-4 gap-3">
-          {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} className="h-20 rounded-xl" />
-          ))}
-        </div>
-      </div>
-    );
+    return <Loading />;
   }
 
   if (!project) {
@@ -179,7 +171,6 @@ export default function ProjectPage() {
 
   const accent = getAccent(project.name);
   const activeSprint = sprints.find((s) => s.status === "ACTIVE");
-
   const grouped = {
     ACTIVE: sprints.filter((s) => s.status === "ACTIVE"),
     PLANNING: sprints.filter((s) => s.status === "PLANNING"),
@@ -188,7 +179,6 @@ export default function ProjectPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      {/* Back + Header */}
       <div className="flex flex-col gap-4">
         <button
           onClick={() => router.push("/")}
@@ -200,7 +190,6 @@ export default function ProjectPage() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex flex-col gap-1.5">
             <div className="flex flex-wrap items-center gap-3">
-              {/* Color dot + name */}
               <div
                 className="flex size-8 shrink-0 items-center justify-center rounded-lg font-mono text-sm font-black text-white"
                 style={{
@@ -238,8 +227,8 @@ export default function ProjectPage() {
             )}
             <div className="flex items-center gap-3 text-zinc-700">
               <span className="flex items-center gap-1 font-mono text-[10px]">
-                <IconUsers size={10} /> {project.memberCount} member
-                {project.memberCount !== 1 ? "s" : ""}
+                <IconUsers size={10} /> {members.length} member
+                {members.length !== 1 ? "s" : ""}
               </span>
               <span className="font-mono text-[10px]">
                 Created{" "}
@@ -259,7 +248,6 @@ export default function ProjectPage() {
             </div>
           </div>
 
-          {/* Primary action */}
           {tab === "sprints" && isManager && (
             <Button
               onClick={openCreate}
@@ -272,38 +260,47 @@ export default function ProjectPage() {
         </div>
       </div>
 
-      {/* Tab nav */}
-      <div className="flex items-center gap-1 border-b border-white/6 pb-0">
-        {(["overview", "sprints", "members"] as Tab[]).map((t) => (
+      <div className="flex items-center justify-between border-b border-white/6">
+        <div className="flex items-center gap-1">
+          {(["overview", "sprints", "members"] as Tab[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`relative cursor-pointer px-4 pt-0 pb-3 font-mono text-xs capitalize transition-colors ${
+                tab === t ? "text-white" : "text-zinc-600 hover:text-zinc-400"
+              }`}
+            >
+              {t}
+              {t === "sprints" && sprints.length > 0 && (
+                <span className="ml-1.5 rounded-full bg-white/10 px-1.5 py-0.5 font-mono text-[9px] text-zinc-500">
+                  {sprints.length}
+                </span>
+              )}
+              {t === "members" && members.length > 0 && (
+                <span className="ml-1.5 rounded-full bg-white/10 px-1.5 py-0.5 font-mono text-[9px] text-zinc-500">
+                  {members.length}
+                </span>
+              )}
+              {tab === t && (
+                <span
+                  className="absolute right-0 bottom-0 left-0 h-px"
+                  style={{ backgroundColor: accent }}
+                />
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* {tab === "sprints" && isManager && sprints.length > 0 && (
           <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`relative px-4 pt-0 pb-3 font-mono text-xs capitalize transition-colors ${
-              tab === t ? "text-white" : "text-zinc-600 hover:text-zinc-400"
-            }`}
+            onClick={openCreate}
+            className="mb-2 flex items-center gap-1.5 rounded-md border border-white/10 px-3 py-1.5 font-mono text-[11px] text-zinc-400 transition-all hover:border-white/20 hover:text-white"
           >
-            {t}
-            {t === "sprints" && sprints.length > 0 && (
-              <span className="ml-1.5 rounded-full bg-white/10 px-1.5 py-0.5 font-mono text-[9px] text-zinc-500">
-                {sprints.length}
-              </span>
-            )}
-            {t === "members" && members.length > 0 && (
-              <span className="ml-1.5 rounded-full bg-white/10 px-1.5 py-0.5 font-mono text-[9px] text-zinc-500">
-                {members.length}
-              </span>
-            )}
-            {tab === t && (
-              <span
-                className="absolute right-0 bottom-0 left-0 h-px"
-                style={{ backgroundColor: accent }}
-              />
-            )}
+            <IconPlus size={11} /> New Sprint
           </button>
-        ))}
+        )} */}
       </div>
 
-      {/* Tab content */}
       {tab === "overview" && (
         <OverviewPanel project={project} sprints={sprints} members={members} />
       )}
@@ -330,7 +327,9 @@ export default function ProjectPage() {
               <div className="text-center">
                 <p className="font-mono text-sm text-white">No sprints yet</p>
                 <p className="mt-1 font-mono text-xs text-zinc-600">
-                  Create your first sprint to start tracking work.
+                  {isManager
+                    ? "Create your first sprint to start tracking work."
+                    : "No sprints have been created for this project yet."}
                 </p>
               </div>
               {isManager && (
@@ -345,7 +344,6 @@ export default function ProjectPage() {
             </div>
           ) : (
             <>
-              {/* Active */}
               {grouped.ACTIVE.length > 0 && (
                 <SprintGroup
                   title="Active"
@@ -359,7 +357,6 @@ export default function ProjectPage() {
                   onComplete={(s) => completeMut.mutate(s.id)}
                 />
               )}
-              {/* Planning */}
               {grouped.PLANNING.length > 0 && (
                 <SprintGroup
                   title="Planning"
@@ -373,7 +370,6 @@ export default function ProjectPage() {
                   onComplete={(s) => completeMut.mutate(s.id)}
                 />
               )}
-              {/* Completed */}
               {grouped.COMPLETED.length > 0 && (
                 <SprintGroup
                   title="Completed"
@@ -396,7 +392,6 @@ export default function ProjectPage() {
         <MembersPanel members={members} ownerId={project.ownerId} />
       )}
 
-      {/* Sprint form sheet */}
       <SprintFormSheet
         open={sheetOpen}
         onOpenChange={(v: any) => {
@@ -408,7 +403,6 @@ export default function ProjectPage() {
         onSubmit={handleFormSubmit}
       />
 
-      {/* Delete confirm overlay */}
       {deletingId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-xl border border-white/10 bg-[#181b1f] p-6 shadow-2xl">

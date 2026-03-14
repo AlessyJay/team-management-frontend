@@ -5,6 +5,7 @@ import {
   format,
   formatDistanceToNow,
 } from "date-fns";
+import { useRouter } from "next/navigation";
 import { getAccent, STATUS_CONFIG } from "./get-accents";
 import {
   IconAlertTriangle,
@@ -36,6 +37,7 @@ export const SprintCard = ({
   onStart: (s: Sprint) => void;
   onComplete: (s: Sprint) => void;
 }) => {
+  const router = useRouter();
   const accent = getAccent(sprint.name);
   const cfg = STATUS_CONFIG[sprint.status];
   const allMembers = [...sprint.leads, ...sprint.members];
@@ -51,15 +53,20 @@ export const SprintCard = ({
     daysLeft <= 3 &&
     sprint.status === "ACTIVE";
 
+  const navigateToDetail = () => {
+    router.push(`/projects/${projectId}/sprints/${sprint.id}`);
+  };
+
   return (
     <div
-      className="group relative flex flex-col gap-4 rounded-xl border p-5 transition-all duration-200"
+      className="group relative flex cursor-pointer flex-col gap-4 rounded-xl border p-5 transition-all duration-200"
       style={{
         background: `linear-gradient(135deg, ${accent}08 0%, transparent 50%), var(--card)`,
         borderColor: "rgba(255,255,255,0.07)",
         borderLeftColor: accent,
         borderLeftWidth: "3px",
       }}
+      onClick={navigateToDetail}
     >
       {/* Header */}
       <div className="flex items-start gap-3">
@@ -94,7 +101,10 @@ export const SprintCard = ({
           </span>
 
           {isManager && (
-            <div className="flex items-center gap-1">
+            <div
+              className="flex items-center gap-1"
+              onClick={(e) => e.stopPropagation()} // prevent card navigation
+            >
               {sprint.status === "PLANNING" && (
                 <button
                   title="Start sprint"
@@ -113,7 +123,7 @@ export const SprintCard = ({
                   <IconCheck size={13} />
                 </button>
               )}
-              {sprint.status !== "COMPLETED" && (
+              {sprint.status !== "COMPLETED" && sprint.status !== "CLOSED" && (
                 <button
                   title="Edit sprint"
                   onClick={() => onEdit(sprint)}
@@ -196,7 +206,7 @@ export const SprintCard = ({
         </div>
       )}
 
-      {/* Leads + Members footer */}
+      {/* Footer */}
       <div className="flex items-center justify-between border-t border-white/4 pt-3">
         <div className="flex items-center gap-3">
           {sprint.leads.length > 0 && (
@@ -226,6 +236,11 @@ export const SprintCard = ({
           {formatDistanceToNow(parseISO(sprint.createdAt), { addSuffix: true })}
         </span>
       </div>
+
+      <div
+        className="absolute inset-0 rounded-xl opacity-0 ring-1 transition-opacity duration-200 ring-inset group-hover:opacity-100"
+        style={{ borderColor: `${accent}30` }}
+      />
     </div>
   );
 };

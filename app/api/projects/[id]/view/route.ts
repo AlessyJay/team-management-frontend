@@ -17,5 +17,5 @@ export const POST = async (
     cache: "no-store",
   }).catch(() => null);
 
-  return NextResponse.json(null, { status: 204 });
+  return new NextResponse(null, { status: 204 });
 };

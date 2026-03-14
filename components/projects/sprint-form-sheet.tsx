@@ -14,12 +14,12 @@ import {
 import {
   SPRINT_CATEGORIES,
   DURATION_OPTIONS,
+  STATUS_OPTIONS,
   type Sprint,
   type CreateSprintPayload,
+  type SprintStatus,
 } from "@/types/sprint.types";
 import type { ProjectMember } from "@/types/home.types";
-
-// ── Mini primitives (no extra shadcn deps) ───────────────────────────────────
 
 function Textarea({
   value,
@@ -97,8 +97,6 @@ function MemberPill({
   );
 }
 
-// ── Props ─────────────────────────────────────────────────────────────────────
-
 interface SprintFormSheetProps {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -107,11 +105,10 @@ interface SprintFormSheetProps {
   onSubmit: (payload: CreateSprintPayload) => Promise<void>;
 }
 
-// ── Form state ────────────────────────────────────────────────────────────────
-
 type DateMode = "duration" | "exact";
 
 interface FormState {
+  status: SprintStatus;
   name: string;
   goal: string;
   category: string;
@@ -128,6 +125,7 @@ interface FormState {
 function initForm(edit?: Sprint | null): FormState {
   if (edit) {
     return {
+      status: edit.status,
       name: edit.name,
       goal: edit.goal ?? "",
       category: edit.category ?? "",
@@ -137,11 +135,12 @@ function initForm(edit?: Sprint | null): FormState {
       expectedDuration: edit.expectedDuration ?? "",
       startDate: edit.startDate,
       endDate: edit.endDate ?? "",
-      leads: [], // sprint members are not in the form on edit (managed separately)
+      leads: [],
       members: [],
     };
   }
   return {
+    status: "PLANNING",
     name: "",
     goal: "",
     category: "",
@@ -156,8 +155,6 @@ function initForm(edit?: Sprint | null): FormState {
   };
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
-
 export function SprintFormSheet({
   open,
   onOpenChange,
@@ -169,10 +166,8 @@ export function SprintFormSheet({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
-
   const isEdit = !!editSprint;
 
-  // Reset form when sheet opens
   useEffect(() => {
     if (open) {
       setForm(initForm(editSprint));
@@ -183,7 +178,6 @@ export function SprintFormSheet({
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
-  // ── Tag logic ────────────────────────────────────────────────────────────
   const addTag = () => {
     const t = form.tagInput.trim().toLowerCase().replace(/\s+/g, "-");
     if (!t || form.tags.includes(t) || form.tags.length >= 8) return;
@@ -191,52 +185,35 @@ export function SprintFormSheet({
     set("tagInput", "");
   };
 
-  const removeTag = (tag: string) =>
-    set(
-      "tags",
-      form.tags.filter((t) => t !== tag),
-    );
-
-  // ── Member logic ─────────────────────────────────────────────────────────
   const alreadyAssigned = new Set([
     ...form.leads.map((m) => m.userId),
     ...form.members.map((m) => m.userId),
   ]);
-
   const available = projectMembers.filter(
     (m) => !alreadyAssigned.has(m.userId),
   );
 
-  const addLead = (m: ProjectMember) => {
-    if (form.leads.length >= 2) return;
-    set("leads", [...form.leads, m]);
-  };
-
-  const addMember = (m: ProjectMember) => set("members", [...form.members, m]);
-
-  // ── Submit ───────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (!form.name.trim()) {
       setError("Sprint name is required");
       return;
     }
-
-    const needsDuration = form.dateMode === "duration";
-    if (needsDuration && !form.expectedDuration) {
+    if (form.dateMode === "duration" && !form.expectedDuration) {
       setError("Select an expected duration");
       return;
     }
-    if (!needsDuration && !form.startDate) {
+    if (form.dateMode === "exact" && !form.startDate) {
       setError("Start date is required");
       return;
     }
 
     const payload: CreateSprintPayload = {
       name: form.name.trim(),
+      status: form.status,
       ...(form.goal.trim() && { goal: form.goal.trim() }),
       ...(form.category && { category: form.category }),
       ...(form.tags.length && { tags: form.tags }),
-      ...(needsDuration
+      ...(form.dateMode === "duration"
         ? { expectedDuration: form.expectedDuration }
         : {
             startDate: form.startDate,
@@ -260,7 +237,6 @@ export function SprintFormSheet({
     }
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -279,6 +255,34 @@ export function SprintFormSheet({
         </SheetHeader>
 
         <div className="flex flex-col gap-6 px-6 py-6">
+          {/* Status */}
+          <div className="flex flex-col gap-2">
+            <Label className="font-mono text-[11px] font-medium tracking-widest text-zinc-500 uppercase">
+              Status
+            </Label>
+            <div className="flex flex-wrap gap-2">
+              {STATUS_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => set("status", opt.value)}
+                  className={`rounded-md px-3 py-1.5 font-mono text-xs transition-all ${
+                    form.status === opt.value
+                      ? "font-semibold text-black"
+                      : "border border-white/10 bg-transparent text-zinc-500 hover:border-white/25 hover:text-white"
+                  }`}
+                  style={
+                    form.status === opt.value
+                      ? { backgroundColor: opt.color }
+                      : {}
+                  }
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Name */}
           <div className="flex flex-col gap-2">
             <Label className="font-mono text-[11px] font-medium tracking-widest text-zinc-500 uppercase">
@@ -295,7 +299,7 @@ export function SprintFormSheet({
           {/* Description */}
           <div className="flex flex-col gap-2">
             <Label className="font-mono text-[11px] font-medium tracking-widest text-zinc-500 uppercase">
-              Description
+              Description{" "}
               <span className="ml-2 text-zinc-700 normal-case">optional</span>
             </Label>
             <Textarea
@@ -329,7 +333,7 @@ export function SprintFormSheet({
           {/* Tags */}
           <div className="flex flex-col gap-2">
             <Label className="font-mono text-[11px] font-medium tracking-widest text-zinc-500 uppercase">
-              Tags
+              Tags{" "}
               <span className="ml-2 text-zinc-700 normal-case">up to 8</span>
             </Label>
             <div className="flex gap-2">
@@ -366,7 +370,12 @@ export function SprintFormSheet({
                     #{tag}
                     <button
                       type="button"
-                      onClick={() => removeTag(tag)}
+                      onClick={() =>
+                        set(
+                          "tags",
+                          form.tags.filter((t) => t !== tag),
+                        )
+                      }
                       className="text-zinc-600 transition-colors hover:text-red-400"
                     >
                       ×
@@ -377,7 +386,7 @@ export function SprintFormSheet({
             )}
           </div>
 
-          {/* Dates */}
+          {/* Timeline */}
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <Label className="font-mono text-[11px] font-medium tracking-widest text-zinc-500 uppercase">
@@ -431,7 +440,7 @@ export function SprintFormSheet({
                     type="date"
                     value={form.startDate}
                     onChange={(e) => set("startDate", e.target.value)}
-                    className="scheme:dark border-white/10 bg-white/4 font-mono text-xs"
+                    className="border-white/10 bg-white/4 font-mono text-xs"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -442,14 +451,14 @@ export function SprintFormSheet({
                     type="date"
                     value={form.endDate}
                     onChange={(e) => set("endDate", e.target.value)}
-                    className="border-white/10 bg-white/4 font-mono text-xs scheme-dark"
+                    className="border-white/10 bg-white/4 font-mono text-xs"
                   />
                 </div>
               </div>
             )}
           </div>
 
-          {/* Sprint people — only shown on create */}
+          {/* Sprint people — only on create */}
           {!isEdit && (
             <>
               <div className="h-px bg-white/6" />
@@ -458,7 +467,7 @@ export function SprintFormSheet({
               <div className="flex flex-col gap-3">
                 <div className="flex items-baseline justify-between">
                   <Label className="font-mono text-[11px] font-medium tracking-widest text-zinc-500 uppercase">
-                    Sprint Leads
+                    Sprint Leads{" "}
                     <span className="ml-2 text-zinc-700 normal-case">
                       max 2
                     </span>
@@ -467,7 +476,6 @@ export function SprintFormSheet({
                     {form.leads.length}/2
                   </span>
                 </div>
-
                 {form.leads.length > 0 && (
                   <div className="flex flex-col gap-1.5">
                     {form.leads.map((m) => (
@@ -485,14 +493,16 @@ export function SprintFormSheet({
                     ))}
                   </div>
                 )}
-
                 {form.leads.length < 2 && available.length > 0 && (
                   <div className="flex flex-col gap-1 rounded-md border border-white/6 bg-white/2 p-1">
                     {available.slice(0, 8).map((m) => (
                       <button
                         key={m.userId}
                         type="button"
-                        onClick={() => addLead(m)}
+                        onClick={() => {
+                          if (form.leads.length < 2)
+                            set("leads", [...form.leads, m]);
+                        }}
                         className="flex items-center gap-2.5 rounded px-2 py-1.5 text-left transition-colors hover:bg-white/6"
                       >
                         <div className="flex size-5 shrink-0 items-center justify-center rounded-full bg-white/10 font-mono text-[9px] font-bold text-white">
@@ -520,7 +530,6 @@ export function SprintFormSheet({
                 <Label className="font-mono text-[11px] font-medium tracking-widest text-zinc-500 uppercase">
                   Sprint Members
                 </Label>
-
                 {form.members.length > 0 && (
                   <div className="flex flex-col gap-1.5">
                     {form.members.map((m) => (
@@ -538,7 +547,6 @@ export function SprintFormSheet({
                     ))}
                   </div>
                 )}
-
                 {available.filter(
                   (m) => !form.leads.find((l) => l.userId === m.userId),
                 ).length > 0 && (
@@ -551,7 +559,7 @@ export function SprintFormSheet({
                         <button
                           key={m.userId}
                           type="button"
-                          onClick={() => addMember(m)}
+                          onClick={() => set("members", [...form.members, m])}
                           className="flex items-center gap-2.5 rounded px-2 py-1.5 text-left transition-colors hover:bg-white/6"
                         >
                           <div className="flex size-5 shrink-0 items-center justify-center rounded-full bg-white/10 font-mono text-[9px] font-bold text-white">
@@ -571,7 +579,6 @@ export function SprintFormSheet({
             </>
           )}
 
-          {/* Error */}
           {error && (
             <p className="rounded-md border border-red-500/20 bg-red-500/10 px-3 py-2 font-mono text-xs text-red-400">
               {error}
@@ -579,7 +586,6 @@ export function SprintFormSheet({
           )}
         </div>
 
-        {/* Footer */}
         <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-white/[0.07] bg-[#0f1114] px-6 py-4">
           <Button
             variant="outline"

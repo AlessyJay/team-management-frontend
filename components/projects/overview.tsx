@@ -13,7 +13,7 @@ const Stat = ({
   value: string | number;
   sub?: string;
 }) => (
-  <div className="flex flex-col gap-1 rounded-xl border border-white/[0.07] bg-white/2 p-4">
+  <div className="flex flex-col gap-1 rounded-xl border border-white/7 bg-white/2 p-4">
     <span className="font-mono text-[10px] tracking-widest text-zinc-600 uppercase">
       {label}
     </span>
