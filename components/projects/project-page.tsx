@@ -290,15 +290,6 @@ export default function ProjectPage() {
             </button>
           ))}
         </div>
-
-        {/* {tab === "sprints" && isManager && sprints.length > 0 && (
-          <button
-            onClick={openCreate}
-            className="mb-2 flex items-center gap-1.5 rounded-md border border-white/10 px-3 py-1.5 font-mono text-[11px] text-zinc-400 transition-all hover:border-white/20 hover:text-white"
-          >
-            <IconPlus size={11} /> New Sprint
-          </button>
-        )} */}
       </div>
 
       {tab === "overview" && (
